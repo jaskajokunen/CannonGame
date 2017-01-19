@@ -1,0 +1,129 @@
+#gameCanvas{
+
+border: 2px solid black;
+
+}
+
+#scoreText{
+	position: absolute;
+	left: 7px;
+	top: 502px;	
+
+	}
+
+	#score {
+	position: absolute;
+	left: 57px;
+	top: 502px;
+	}
+
+#baseText{
+	position: absolute;
+	left: 520px;
+	top: 502px;	
+
+	}
+
+	#baseHP {
+	position: absolute;
+	left: 605px;
+	top: 502px;
+	}
+
+
+
+#rescuedText{
+	position: absolute;
+	left: 130px;
+	top: 502px;	
+
+	}
+
+#rescued{
+	position: absolute;
+	left: 207px;
+	top: 502px;	
+
+	}
+
+
+
+#timerText {
+	position: absolute;
+	left: 295px;
+	top: 17px;
+	text-align: center;
+}
+
+#timer{
+	position: absolute;
+	left: 385px;
+	top: 0px;
+	text-align: center;	
+}
+
+#hellmodeText {
+	position: absolute;
+	left: 400px;
+	top: 0px;
+}
+
+#hellmode{
+	position: absolute;
+	left: 580px;
+	top: 0px;	
+}
+
+#customText{
+
+	z-index: 0;
+	width: 110px;
+	height: 40px;
+	position: fixed;
+	text-align: center;
+	font-size: 29px;
+	
+	border: 2px solid #d78700;
+	padding: 10px;
+	
+	background-color: #b46900;
+	border-bottom-left-radius: 20px;
+	border-bottom-right-radius: 20px;
+
+
+}
+
+.canvasBoards{
+
+	z-index: 0;
+	width: 110px;
+	height: 40px;
+	position: fixed;
+	text-align: center;
+	font-size: 20px;
+	
+	border: 2px solid #d78700;
+	padding: 10px;
+	
+	background-color: #b46900;
+	border-top-left-radius: 20px;
+	border-top-right-radius: 20px;
+
+}	
+
+#scoreBoard{
+
+	
+}
+
+body {
+
+font-family: Montserrat Alternates;	
+cursor:url(kuvat/tahtain16x16.png),auto;
+-webkit-touch-callout:none; 
+-webkit-user-select:none; 
+-moz-user-select:none; 
+-ms-user-select:none;
+ user-select:none;
+
+}	

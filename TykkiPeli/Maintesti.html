@@ -1,0 +1,1772 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title></title>
+<link rel="stylesheet" type="text/css" href="tyylit.css">
+<link href='http://fonts.googleapis.com/css?family=Montserrat+Alternates' rel='stylesheet' type='text/css'>
+<script src="extends/jquery.js"></script>
+<script src="extends/canvasengine.js"></script>
+<script src="extends/Input.js"></script>
+<script src="extends/Hit.js"></script>
+<script src="extends/Spritesheet.js"></script>
+<script type="text/javascript">
+
+var playGame = false;
+var gameStarted = false;
+var showReplayScreen = false;
+var replayScreenShowed = false;
+var gameTimer = 100;
+var hellMode = false;
+var hellmodeSwitch = false;
+var laukaus = 5;
+var score = 0;
+var rescuedCounter = 0;
+var movementTimer = 0;
+var throwingTimer = 0;
+var pollutionOnGround = 0;
+var flowerOnGround = 0;
+
+$('document').ready(function(){
+	
+	var canvasPosition = $('#gameCanvas').position();
+	
+	var canvasWidth = $('#gameCanvas').width();
+	var canvasHeight = $('#gameCanvas').height();
+	
+	var boxWidth = $('#customText').width();
+	var boxHeight = $('#customText').height();
+	
+	var boxFromTop = (canvasHeight - boxHeight) / 2;
+	var boxFromLeft = (canvasWidth - boxWidth) / 2;
+
+	$('#customText').css('top', canvasPosition.top + boxFromTop);
+	$('#customText').css('left', canvasPosition.left + boxFromLeft);
+	
+	$('#scoreBoard').css('width', boxWidth);
+	$('#scoreBoard').css('height', boxHeight);
+	
+	$('#scoreBoard').css('top', canvasPosition.top + boxFromTop - 70);
+	$('#scoreBoard').css('left', canvasPosition.left + boxFromLeft);
+	
+	$('#scoreBoard').hide();
+	
+	$('#customText').click(function(e){
+
+		console.log('clicked play');
+		playGame = true;
+		$('#customText').hide();
+		gameStarted = true;
+
+});
+
+$(window).blur(function(){
+		
+		playGame = false;
+		console.log('switched tab');
+		
+	});
+
+$(window).focus(function(){
+		
+		if(gameStarted){
+		playGame = true;
+		}
+	});
+});		
+
+
+
+var canvas = CE.defines("gameCanvas").
+	extend(Input).
+	extend(Effect).
+	extend(Animation).
+	extend(Hit).
+	extend(Spritesheet).
+ready(function() {
+    canvas.Scene.call("TestScene");
+});
+        
+canvas.Scene.new({
+name: "TestScene",
+	materials: {
+		images: {
+				tynnyri: "kuvat/tynnyri.png",
+				piippu:"kuvat/piippu.png",
+				bullet: "kuvat/kuula.png",
+				ukkoSpritesheet: "kuvat/spritesheet.png",
+				ukkoSpritesheetBack: "kuvat/spritesheetback.png",
+				rengas: "kuvat/rengas.png",
+				background: "kuvat/tausta.png",
+				lammas: "kuvat/lammas32x32.png",
+				alusta: "kuvat/alusta26x20.png",
+				hitSprite: "kuvat/osuma48x16.png",
+				laikka: "kuvat/laikka32x32.png",
+				kissa: "kuvat/kissa32x32k.png",
+				kana: "kuvat/kana32x32k.png",
+				kukka: "kuvat/kukka32x32.png",
+				puuspriteIso:"kuvat/isotpuut.png",
+				cooldown: "kuvat/cooldown.png",
+				sanko : "kuvat/sanko13x18.png",
+				pommiSheet: "kuvat/kranaattisheet64x32.png",
+				hellmoodi:"kuvat/hellmoodi.png"
+
+
+
+
+
+		}
+		
+	},
+preload: function() {
+	
+
+},
+ready: function(stage) {
+
+
+
+		var playerLoop= 0;
+		var testScene = canvas.Scene._scenes.TestScene;		
+		var flyingObjects = testScene.flyingObjects = [];
+		var ammo = testScene.ammo = [];
+		var baseHit = testScene.baseHit = false;
+		var gamespeed = 1000;
+		var gameCanvas = document.getElementById("gameCanvas");
+		var canvasWidth = gameCanvas.width;
+		var canvasHeight = gameCanvas.height;
+		var keyState = {};
+		stage.drawImage("background", 0, 0);
+
+
+		var game = function() {
+
+		createBase();
+		addSounds();
+		var cannon = testScene.cannon= createCannon();
+		var unit = testScene.cleanerEntity = createUnit();
+
+
+
+		mouseMovement(cannon);
+		addEventListeners();
+
+		var spritesheetBomb = testScene.spritesheetBomb = canvas.Spritesheet.new("pommiSheet");			
+	spritesheetBomb.set({
+		grid: [{
+			size: [2, 0],
+			tile: [32, 32],
+			set: ["handleOn", "handleOff"]
+		}]
+	});
+
+
+		var intervalChanger = testScene.intervalChanger = setInterval(addObjects, gamespeed);
+		setInterval(function(){animateMovement(unit)},100);
+		setInterval(function(){keyboardMovement(unit, cannon)},10);
+		setInterval(function(){decrementTime(unit)},1000);
+		}
+
+		
+
+		var createBase = function() { 
+
+		var score = testScene.score = 0;	
+	
+
+		testScene.base = Class.New("Entity", [stage]);
+		
+		testScene.base.rect(null, null, 60, 160);
+
+		testScene.base.position(500, 300);
+		
+		testScene.base.hitsLeft = 10;
+		testScene.base.condition = 0;
+
+		var puuSprite = testScene.puuSprite =  canvas.Spritesheet.new("puuspriteIso");			
+		puuSprite.set({
+		grid: [{
+			size: [5, 0],
+			tile: [135, 160],
+			set: ["1", "2", "3", "4", "5"]
+		}]
+	});
+
+		stage.append(testScene.base.el);
+		}
+
+		var addSounds = function() {
+		//Äänet	
+		var cannonHit = testScene.cannonHit = new Audio("sound/osuma.wav");
+		var hitGood = testScene.hitGood = new Audio("sound/elainosuma.wav");
+		var spill = testScene.spill = new Audio("sound/laikka.wav");
+		var baseReached = testScene.baseReached = new Audio("sound/elainbase.wav");
+		var baseGotHit = testScene.baseGotHit = new Audio("sound/osumabase.wav");
+		var koppi = testScene.koppi = new Audio("sound/elainkoppi.wav");
+		var shot = testScene.shot = new Audio("sound/ammus.wav");
+		var grenadeExplosion = testScene.grenadeExplosion = new Audio("sound/kranaattirajahdys.wav");
+		var unitThrowing = testScene.unitThrowing = new Audio("sound/ukkoampuu.wav");
+		var unitMoving = testScene.unitMoving = new Audio("sound/ukkokavely.wav");
+		var unitClean = testScene.unitClean = new Audio("sound/ukkolaikka.wav");
+		var unitHit = testScene.unitHit = new Audio("sound/ukkoosuma.wav");
+
+		}
+
+		var createCannon = function() {
+		var cannon = Class.New("Entity", [stage]);
+		cannon.rect(null, null, 20, 120);
+		cannon.el.x = 490;
+		cannon.el.y = 400;
+		cannon.position(cannon.el.x, cannon.el.y);
+		cannon.el.drawImage("piippu");
+
+		cannon.alusta = testScene.createElement();
+		cannon.alusta.drawImage("alusta");
+		cannon.alusta.x = cannon.el.x - 2.8;
+		cannon.alusta.y = cannon.el.y + 50;		
+
+		cannon.centerX = cannon.el.x +8;
+		cannon.centerY = cannon.el.y +60;
+		cannon.rotateCannon =false; 
+		cannon.radius = 60;
+		cannon.el.setOriginPoint("middle");
+
+		cannon.differential = testScene.createElement();
+		cannon.differential.x = 200;
+		cannon.differential.y = 228;
+		//cannon.differential.fillRect(cannon.differential.x,cannon.differential.y,10,10);
+
+
+		cannon.cooldownMeter = testScene.createElement();
+		cannon.cooldownMeter.x = cannon.alusta.x;
+		cannon.cooldownMeter.y = cannon.alusta.y -30;
+		cannon.cooldownMeter.drawImage("cooldown");
+		cannon.cooldownMeter.opacity = 0;
+
+
+
+		stage.append(cannon.alusta);
+		stage.append(cannon.differential);
+		stage.append(cannon.el);
+		stage.append(cannon.cooldownMeter);
+
+		return cannon;
+		}
+
+		var createUnit = function() {		
+
+		cleanerEntity = Class.New("Entity", [stage]);
+		cleanerEntity.rect(null, null, 32, 32);
+		cleanerEntity.position(0, 430);
+		cleanerEntity.movement = false;
+		cleanerEntity.direction = "forward";
+		cleanerEntity.gotHit = false;
+		cleanerEntity.unitHitPlayed = false;
+		cleanerEntity.canShoot = true;
+		cleanerEntity.shooting = false;
+		cleanerEntity.ammoList = [];
+
+		cleanerEntity.cooldownMeter = testScene.createElement();
+		cleanerEntity.cooldownMeter.x = cleanerEntity.el.x +35;
+		cleanerEntity.cooldownMeter.y = cleanerEntity.el.y -8;
+		cleanerEntity.cooldownMeter.drawImage("cooldown");
+		cleanerEntity.cooldownMeter.opacity = 0;
+
+		var spritesheet = testScene.spritesheet = canvas.Spritesheet.new("ukkoSpritesheet");
+	spritesheet.set({
+		grid: [{
+			size: [6, 0],
+			tile: [40, 50],
+			set: ["stand", "step", "step2", "step3", "step4","step5"]
+		}]
+	});
+	//Spritesheet, joka sisÃ¤ltÃ¤Ã¤ vasemmalle menevÃ¤n liikkeen
+	var spritesheetBack = testScene.spritesheetBack = canvas.Spritesheet.new("ukkoSpritesheetBack");			
+	spritesheetBack.set({
+		grid: [{
+			size: [6, 0],
+			tile: [40, 50],
+			set: ["step5", "step4", "step3", "step2", "step","stand"]
+		}]
+	});
+
+
+
+		stage.append(cleanerEntity.el);
+		return cleanerEntity;			
+	};
+
+
+		var mouseMovement = function(cannon) {
+
+
+
+		var x,y,mouseX,mouseY,targetX,targetY,radians;
+
+
+		$('#gameCanvas').click(function(e) {
+
+		mouseX = e.pageX - gameCanvas.offsetLeft;
+		mouseY = e.pageY - gameCanvas.offsetTop;
+		if(playGame == true) {
+		//console.log(laukaus);
+    	if(laukaus > 0) {
+    	shoot(mouseX, mouseY, cannon);
+    	laukaus -=1;
+    	}
+    }
+    
+		});
+
+
+		$('#gameCanvas').bind("mousemove",function(e){
+		
+		if(playGame == true) {
+		mouseX = e.pageX - gameCanvas.offsetLeft;
+		mouseY = e.pageY - gameCanvas.offsetTop;
+
+		targetX = (cannon.el.x - mouseX) +10;
+		targetY = (cannon.el.y - mouseY) +60;
+
+		
+		
+		cannon.angle = Math.atan2((targetY),(targetX))*(180 / Math.PI);
+		cannon.angle = (cannon.angle - 90) % 360;
+		if (cannon.angle < 0) 
+		cannon.angle = 180 + (180 - (Math.abs(cannon.angle)));
+
+		//console.log(cannon.angle);
+		
+		if(cannon.angle >= 270 && cannon.angle <= 360) {
+		cannon.rotateCannon = true;
+		}
+
+		else {
+		cannon.rotateCannon = false;	
+		}
+	
+
+
+		if (cannon.angle <= 270 && cannon.angle >= 240) {
+		cannon.angle = 270;
+		}
+
+		else if (cannon.angle >= 360 || cannon.angle <55) {
+		cannon.angle = 360;
+		
+		}
+
+		if(cannon.rotateCannon == true) {
+		cannon.el.rotation = cannon.angle;
+
+
+		radians = cannon.angle*Math.PI/180;
+
+
+		x = (cannon.centerX +5 + (100 * Math.sin(radians)));
+		y = (cannon.centerY -10 - (100 * Math.cos(radians)));
+
+		cannon.differential.x = x -210;
+		cannon.differential.y = y -220;
+
+
+		}
+
+	}
+
+			});
+
+
+		}
+
+		// the shooting
+		
+	
+		function shoot(mouseX, mouseY, cannon){
+
+
+			testScene.shot.play();
+
+			var bullet = Class.New("Entity", [stage]);
+
+			
+
+
+			bullet.damage = 1;
+			bullet.damageDealt = false;
+			var addBullet = false;
+
+
+			var radians = cannon.angle*Math.PI/180;
+
+			var x = (cannon.centerX + (cannon.radius * Math.sin(radians))) -5;
+			var y = (cannon.centerY - (cannon.radius * Math.cos(radians))) -5;
+
+			
+
+			var speed = 5;
+			var thresholdX;
+			var shootUp;
+			bullet.rect(null, null, 12, 12);
+
+
+			bullet.position(x, y);
+
+			
+			bullet.el.drawImage("bullet");
+			bullet.el.setOriginPoint("middle");
+
+
+    		if(cannon.angle >270 && cannon.angle <360) {
+    		thresholdX = 220;
+    		shootUp = false;
+    		}
+
+    		else if(cannon.angle ==360) {
+    		shootUp = true;
+    		thresholdX = null;
+    		}
+
+    		else{
+    		thresholdX = 300;
+    		shootUp = false;	
+    		}
+
+
+    		
+    		
+    	if(mouseX - cannon.differential.x < thresholdX && mouseY < 475 && mouseY >445|| shootUp == true && mouseY <370 && mouseX >= 500 ||cannon.angle >270 && cannon.angle <360 && mouseX - cannon.differential.x < thresholdX) {
+
+    	
+    		
+
+
+       	var dx = (mouseX - bullet.el.x) -8;
+        var dy = (mouseY - bullet.el.y);
+
+
+
+          var mag = Math.sqrt(dx * dx + dy * dy);              
+          bullet.vx = (dx / mag) * speed;
+          bullet.vy = (dy / mag) * speed;
+
+
+		if(cannon.rotateCannon == true) {
+		addBullet = true;	
+
+		}
+
+		if (cannon.angle <= 270 && cannon.angle >= 240) {
+		addBullet = true;
+		dx = -376;
+		dy = 6;
+		mag = 376;
+		bullet.vx = -4.997641627010914;
+		bullet.vy = 0; 
+		}
+
+		else if (cannon.angle == 360) {
+		addBullet = true;
+		dx =  11;
+		dy = -89;
+		mag = 89.67719888578144;
+		bullet.vx = 0;
+		bullet.vy = -4.998398462482939;
+		}
+
+
+		bullet.dx = dx;
+        bullet.dy = dy;
+
+        bullet.mag = mag;
+         
+
+        firepower = (bullet.el.x * 2) -(Math.sqrt(mouseX *mouseX +mouseY*mouseY));       
+        bullet.speed = firepower / 100;
+
+
+		if(addBullet == true) {
+		ammo.push(bullet);	
+		stage.append(bullet.el);
+		}
+
+
+		
+}			
+		}
+
+
+		var addEventListeners = function() {
+		window.addEventListener('keydown',function(e){
+    keyState[e.keyCode || e.which] = true;
+},true);
+
+window.addEventListener('keyup',function(e){
+    keyState[e.keyCode || e.which] = false;
+},true);
+
+
+		}
+
+		
+		var addObjects = function(){
+
+			clearInterval(testScene.intervalChanger);
+
+
+			var object = Class.New("Entity", [stage]);
+
+
+
+			object.rect(null, null, 32, 32);
+
+			var xpoint = Math.floor((Math.random() * -500), 200);
+			var ypoint = Math.floor((Math.random() * -200), 300);
+
+			var objectType;
+
+
+			if(hellMode == false) {
+			objectType= Math.floor((Math.random() * 13)+1);
+			}
+			else{
+			objectType= Math.floor((Math.random() * 6)+1);
+			gamespeed = 500;
+			}
+			
+			object.position(xpoint, ypoint);
+			object.isGood = false;
+			object.el.zIndex = 1;
+			object.hp = 1;
+			object.isPollution = false;
+			object.isFlower = false;
+			object.isGood = false;
+			object.catched = false;
+			object.isDrawn = false;
+			object.moveSpeed = new Array(2, 1.5);
+			object.el.setOriginPoint("middle");
+
+			
+			switch(objectType) 
+			{
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			object.el.drawImage("tynnyri");
+			object.hp = 2;
+			object.id = "tynnyri"
+			break;
+			case 5:
+			case 6:
+			object.el.drawImage("rengas");
+			break;
+			case 7:
+			case 8:
+			object.moveSpeed = new Array(1, 1.3);
+			object.el.drawImage("kana");
+			object.id = "kana";
+			object.isGood = true;
+			break;
+			case 9:
+			case 10:
+			object.moveSpeed = new Array(1, 1.3);
+			object.el.drawImage("kissa");
+			object.id = "kissa";
+			object.isGood = true;
+			break;
+			case 11:
+			case 12:
+			object.moveSpeed = new Array(1, 1.3);
+			object.el.drawImage("lammas");
+			object.id = "lammas";
+			object.isGood = true;
+			break;
+			case 13:
+			object.moveSpeed = new Array(1, 1.3);
+			object.id = "pommi";
+			object.isGood = true;
+			object.hp = 2;
+			testScene.spritesheetBomb.draw(object.el, "handleOn");	
+			break;
+			}
+			
+
+			if(playGame == true) {
+
+			stage.append(object.el);
+			flyingObjects.push(object);
+
+			
+			}
+
+			
+			testScene.intervalChanger = setInterval(addObjects, gamespeed);
+
+
+		}
+		
+			var animateMovement = function(unit) {
+
+			
+		if(unit.movement == true) {
+			playerLoop= playerLoop+1;
+			testScene.unitMoving.play();
+		}
+		if(unit.movement == false) {
+			playerLoop= 0;
+
+		}
+
+		
+
+	//PiirretÃ¤Ã¤n siivojan liike
+	render(unit, playerLoop);
+
+	if(playerLoop>=3) {
+		playerLoop= 0;
+	}
+
+
+};
+function render(unit, playerLoop) {
+
+
+	//Spritesheet, joka sisÃ¤ltÃ¤Ã¤ oikealle menevÃ¤n liikkeen
+
+	spritesheet = testScene.spritesheet;
+	spritesheetBack = testScene.spritesheetBack;
+	puuSprite = testScene.puuSprite;
+	
+
+if(unit.gotHit == false) {
+	unit.unitHitPlayed = false;
+	//Jos siivooja ei liiku
+	unit.el.opacity = 1;
+
+	switch(playerLoop) 
+	{
+	case 0:
+	if(unit.direction == "forward"){	
+			spritesheet.draw(unit.el, "stand");
+		}
+		if(unit.direction == "backward") {
+			spritesheetBack.draw(unit.el,"stand");
+		}
+	break;
+	case 1:
+			if(unit.direction == "forward"){	
+			spritesheet.draw(unit.el, "step");
+		}
+		if(unit.direction == "backward") {
+			spritesheetBack.draw(unit.el,"step");
+		}
+	break;
+	case 2:
+	if(unit.direction == "forward"){		
+			spritesheet.draw(unit.el, "step2");
+		}
+		if(unit.direction == "backward") {
+			spritesheetBack.draw(unit.el, "step2");
+		}
+	break;
+	case 3:
+	if(unit.direction== "forward") {
+			spritesheet.draw(unit.el, "step3");
+		}
+		if(unit.direction == "backward") {
+			spritesheetBack.draw(unit.el, "step3");
+		}
+	break;
+
+	}
+
+	if(unit.shooting == true) {
+	if(unit.direction== "forward") {
+			spritesheet.draw(unit.el, "step5");
+			unit.shooting =false;
+			unit.movement = false;
+
+
+		}
+		if(unit.direction == "backward") {
+			spritesheetBack.draw(unit.el, "step5");
+			unit.shooting =false;
+			unit.movement = false;
+		}
+
+
+	}
+
+}
+
+else {
+//Jos ukkoon osui
+if(unit.unitHitPlayed == false) {
+testScene.unitHit.play();
+unit.unitHitPlayed = true;	
+}	
+
+if(unit.direction == "forward"){	
+			spritesheet.draw(unit.el, "stand");
+
+		}
+		if(unit.direction == "backward") {
+			spritesheetBack.draw(unit.el,"stand");
+		}
+		unit.el.opacity = 0.4;	
+}
+
+//Puun animointi
+			switch(testScene.base.hitsLeft) 
+			{
+				case 10:
+				puuSprite.draw(testScene.base.el, "1");
+				break;
+				case 8:
+				puuSprite.draw(testScene.base.el, "2");
+				break;
+				case 6:
+				puuSprite.draw(testScene.base.el, "3");
+				break;
+				case 4:
+				puuSprite.draw(testScene.base.el, "4");
+				break;
+				case 2:
+				puuSprite.draw(testScene.base.el, "5");
+				break;
+			}	
+
+	
+}
+		
+		
+
+var keyboardMovement = function(unit, cannon) {
+
+	if(playGame == true) {
+	if(unit.gotHit == false) {
+
+	if (keyState[65]){
+
+	if(unit.el.x <= -10){
+			
+			unit.move(0);
+			return;
+		} 
+
+    unit.move(-2);
+    unit.direction = "backward";
+	unit.movement = true;
+    }
+
+    else if (keyState[83]) {
+
+    if(unit.canShoot == true) {
+    var ammo = createAmmo(unit);
+    testScene.unitThrowing.play();
+    unit.shooting = true;
+    if(ammo != undefined) {	
+    unit.ammoList.push(ammo);
+	}
+    unit.canShoot = false;
+	}
+
+    }
+
+
+
+    else if (keyState[68]){
+
+    if(unit.el.x >= 500){
+			
+			unit.move(0);
+			return;
+		}
+
+
+    unit.move(2);
+    unit.direction = "forward";
+	unit.movement = true	
+    }
+
+    else { 
+    unit.movement = false;
+	}
+
+if(unit.canShoot == false) {
+if(throwingTimer <50){
+throwingTimer +=1;
+}
+
+else {
+throwingTimer =0;
+unit.canShoot = true;
+}
+}
+
+
+}
+}  
+}
+
+var createAmmo = function(unit) {
+var bullet = Class.New("Entity", [stage]);
+bullet.damage = 1;
+bullet.damageDealt = false;
+bullet.rect(null, null, 13, 18);
+bullet.position(unit.el.x +15, unit.el.y -10);
+bullet.el.drawImage("sanko");
+bullet.el.setOriginPoint("middle");
+bullet.launchedForward = false;
+bullet.launchedBackward = false;
+
+              
+bullet.vx = 0;
+bullet.vy = 4;
+
+
+
+		unit.ammoList.push(bullet);	
+		stage.append(bullet.el);
+
+
+}
+
+
+
+var decrementTime = function(unit) {
+
+if(gameTimer >=0) {	
+if (gameTimer != 0 && playGame == true){gameTimer-=1;}
+laukaus +=2;
+if (laukaus < 0) {laukaus = 0;}
+if (laukaus > 5) {laukaus = 5;}
+if(hellmodeSwitch == false) {
+document.getElementById('timerText').innerHTML = "Time left:";
+document.getElementById('timer').innerHTML = gameTimer;
+}
+}
+
+if(unit.gotHit == true) {
+if(movementTimer <1) {	
+movementTimer +=1;
+}
+
+else {
+movementTimer = 0;
+unit.gotHit = false;	
+}}
+
+
+
+if (replayScreenShowed == true) {
+hellMode = false;
+}
+else if(gameTimer==0) {
+hellMode = true;
+if (hellmodeSwitch == false) {
+stage.drawImage("hellmoodi", 0, 0);
+document.getElementById('timerText').innerHTML = "Time out!";
+document.getElementById('timer').innerHTML = "";
+hellmodeSwitch = true;
+}
+
+}
+
+
+}
+
+	
+
+game();	
+
+},
+render: function(stage) {
+
+
+	var gameCanvas = document.getElementById("gameCanvas");
+	var testScene = canvas.Scene._scenes.TestScene;
+	var unit = testScene.cleanerEntity;
+	var rescued = testScene.rescuedEntity;
+	var cannon = testScene.cannon;
+	//Testscenen muuttujat
+	var flyingObjects = testScene.flyingObjects;
+	var ammo = testScene.ammo;
+	var playerAmmo = unit.ammoList;
+	var base = testScene.base;
+	var shake = testScene.shake;
+	var puuSprite = testScene.puuSprite;
+	//Listan pituuden kertovat muuttujat
+	var nbOfAmmo = ammo.length;
+	var nbOfObjects = flyingObjects.length;
+	var nbOfPlayerAmmo = unit.ammoList.length;
+
+
+
+
+
+
+	document.getElementById('baseHP').innerHTML = base.hitsLeft;
+	document.getElementById('score').innerHTML = score;
+	document.getElementById('rescued').innerHTML = rescuedCounter;
+	
+
+
+	
+
+	if(laukaus == 0) {
+	cannon.cooldownMeter.opacity = 1;
+
+	}	
+
+	else {
+		cannon.cooldownMeter.opacity = 0;
+	}
+
+	
+	if(playGame == true){
+
+
+	//Jos ammuslistan ensimmÃ¤inen olio ei ole mÃ¤Ã¤rittelemÃ¤tÃ¶n
+	if(typeof ammo[0] != 'undefined'){
+
+	
+	for(var f = 0; f < nbOfAmmo; f++){
+
+		
+			
+			ammo[f].speed = ammo[f].speed - 0.05;
+			ammo[f].vy = (ammo[f].dy / ammo[f].mag) * ammo[f].speed;
+
+
+			ammo[f].move(ammo[f].vx, ammo[f].vy);
+			ammo[f].el.rotation -= 5;
+
+			
+			//Jos ammus menee reunasta lÃ¤pi, poistetaan se
+			if(ammo[f].el.x < -10 || ammo[f].el.y < -10 || ammo[f].el.y > 490 || ammo[f].el.x > 650){
+
+				
+				ammo[f].rect(null, null);
+				ammo[f].el.remove();
+				ammo.splice(f, 1);
+				nbOfAmmo = nbOfAmmo - 1;
+				//console.log("poistettu");
+
+
+				
+			}
+		
+		
+			//Jos ammus ei mennyt kartasta ohi	
+			else{
+
+		for(var k = 0; k < nbOfObjects; k++){
+
+			object = flyingObjects[k];
+
+			
+			if(typeof flyingObjects[0] != 'undefined' && typeof ammo[f] != 'undefined'){
+
+
+		
+		//Jos ammus osuu viholliseen
+		object.hit([ammo[f]], function(state, el){
+
+
+			if(state == "over" && object.isPollution == false && object.isFlower == false){
+				//console.log(object.isPollution);
+				
+
+
+				if(ammo[f].damageDealt == false) {
+				object.hp = object.hp - ammo[f].damage;
+				ammo[f].damageDealt = true;
+				if(object.isGood ==false) {
+				testScene.cannonHit.play();
+				}
+
+				else if(object.id == "pommi" && object.isGood == true && object.hp == 0) {
+				nbOfObjects = null;
+			$.each( flyingObjects, function(index, value ) {
+			
+
+			if(value.isGood == false) {				
+			score += 20;
+			}	
+			value.el.clearRect(null, null, 32, 32);
+			value.el.remove();
+
+			var hit = testScene.createElement();
+
+				hit.x = value.el.x;
+				hit.y = value.el.y;
+
+				var hitSS = canvas.Animation.new({
+
+					images: "hitSprite",
+					
+					animations: {
+						run:{
+						
+						frames: [0, 3],
+						size: {
+							
+							width: 16,
+							height: 16
+						},
+						frequence: 3,
+						
+						finish: function(){
+							
+							}	
+						}
+						
+					}
+				
+				});
+				
+				stage.append(hit);
+
+				hitSS.add(hit);
+				hitSS.play("run", "remove");
+					
+				hitSS = null;
+				hit = null;
+			
+			});
+			flyingObjects.splice(0);
+			pollutionOnGround = 0;
+			flowerOnGround = 0;
+			testScene.grenadeExplosion.play();
+				}
+
+				else if (object.isGood == true & object.id == "pommi") {
+				testScene.cannonHit.play();
+				}	
+
+
+
+				else {
+				testScene.hitGood.play();		
+				}
+				}
+				
+
+
+				object.el.clearRect(null, null, 32, 32);
+
+
+				var hit = testScene.createElement();
+
+				hit.x = object.el.x;
+				hit.y = object.el.y;
+
+				var hitSS = canvas.Animation.new({
+
+					images: "hitSprite",
+					
+					animations: {
+						run:{
+						
+						frames: [0, 3],
+						size: {
+							
+							width: 16,
+							height: 16
+						},
+						frequence: 3,
+						
+						finish: function(){
+							
+							}	
+						}
+						
+					}
+				
+				});
+
+
+
+				stage.append(hit);
+
+				hitSS.add(hit);
+				hitSS.play("run", "remove");
+					
+				hitSS = null;
+				hit = null;
+
+				if(object.hp ==0) {
+				object.el.remove();
+				flyingObjects.splice(k, 1);
+				
+				nbOfObjects = nbOfObjects - 1;
+				//console.log("TARGET DESTROYED");
+				
+				if (object.isGood == false) {
+				score = score + 20;
+
+				}
+
+
+				else if (object.isGood == true && object.id != "pommi") {
+				score -= 20;	
+				}
+				}			
+	
+
+				ammo[f].el.clearRect(null, null, 3, 10);
+				ammo[f].el.remove();
+				ammo.splice(f, 1);
+				
+				nbOfAmmo = nbOfAmmo - 1;
+
+			
+				
+			}
+			
+		});
+
+			}
+			
+		
+		}
+	}
+	}
+	}
+	
+	
+	if(typeof playerAmmo[0] != undefined) {
+
+	for (var n = 0; n < nbOfPlayerAmmo; n++) {
+
+	if(playerAmmo[n] != undefined) {	
+	
+
+	if(playerAmmo[n].vy >= -3) {
+	playerAmmo[n].vy -= 0.065;
+	}
+
+
+		if(unit.direction == "forward" && playerAmmo[n].launchedForward == false && playerAmmo[n].launchedBackward == false || playerAmmo[n].launchedForward == true && playerAmmo[n].launchedBackward == false ) {
+		playerAmmo[n].vx = 1;
+		playerAmmo[n].launchedForward = true;
+		}
+
+		if (unit.direction == "backward" && playerAmmo[n].launchedBackward == false && playerAmmo[n].launchedForward == false || playerAmmo[n].launchedBackward == true && playerAmmo[n].launchedForward == false) {
+
+		playerAmmo[n].vx = -1;
+		playerAmmo[n].launchedBackward = true;
+		}
+
+
+			playerAmmo[n].move(playerAmmo[n].vx, -playerAmmo[n].vy);
+
+			if(playerAmmo[n].el.x < -10 || playerAmmo[n].el.y < -10 || playerAmmo[n].el.y > 490 || playerAmmo[n].el.x > 650){
+
+	
+				playerAmmo[n].rect(null, null);
+				playerAmmo[n].el.remove();
+				playerAmmo.splice(n, 1);
+				nbOfPlayerAmmo = nbOfPlayerAmmo - 1;
+
+				
+			}
+
+			else{
+
+		for(var g = 0; g < nbOfObjects; g++){
+
+			object = flyingObjects[g];
+
+			if(typeof flyingObjects[0] != 'undefined' && typeof playerAmmo[n] != 'undefined'){
+
+		
+		object.hit([playerAmmo[n]], function(state, el){
+
+
+			if(state == "over" && object.isPollution == false && object.isFlower == false){
+
+
+				if(playerAmmo[n].damageDealt == false) {
+				object.hp = object.hp - playerAmmo[n].damage;
+				playerAmmo[n].damageDealt = true;
+				if(object.isGood ==false) {
+				testScene.cannonHit.play();
+				}
+
+				else if(object.id == "pommi" && object.isGood == true && object.hp == 0) {
+				nbOfObjects = null;
+			$.each( flyingObjects, function(index, value ) {
+			
+
+			if(value.isGood == false) {				
+			score += 20;
+			}	
+			value.el.clearRect(null, null, 32, 32);
+			value.el.remove();
+
+			var hit = testScene.createElement();
+
+				hit.x = value.el.x;
+				hit.y = value.el.y;
+
+				var hitSS = canvas.Animation.new({
+
+					images: "hitSprite",
+					
+					animations: {
+						run:{
+						
+						frames: [0, 3],
+						size: {
+							
+							width: 16,
+							height: 16
+						},
+						frequence: 3,
+						
+						finish: function(){
+							
+							}	
+						}
+						
+					}
+				
+				});
+				
+				stage.append(hit);
+
+				hitSS.add(hit);
+				hitSS.play("run", "remove");
+					
+				hitSS = null;
+				hit = null;
+			
+			});
+			flyingObjects.splice(0);
+			pollutionOnGround =0;
+			flowerOnGround = 0;
+
+			testScene.grenadeExplosion.play();	
+				}
+
+				else if (object.isGood == true & object.id == "pommi") {
+				testScene.cannonHit.play();	
+				} 
+
+				else {
+				testScene.hitGood.play();		
+				}
+
+
+
+				}
+				
+
+				object.el.clearRect(null, null, 32, 32);
+
+
+				var hit = testScene.createElement();
+
+				hit.x = object.el.x;
+				hit.y = object.el.y;
+
+				var hitSS = canvas.Animation.new({
+
+					images: "hitSprite",
+					
+					animations: {
+						run:{
+						
+						frames: [0, 3],
+						size: {
+							
+							width: 16,
+							height: 16
+						},
+						frequence: 3,
+						
+						finish: function(){
+							
+							}	
+						}
+						
+					}
+				
+				});
+
+				stage.append(hit);
+
+				hitSS.add(hit);
+				hitSS.play("run", "remove");
+					
+				hitSS = null;
+				hit = null;
+
+				if(object.hp ==0) {
+				object.el.remove();
+				flyingObjects.splice(g, 1);
+				
+				nbOfObjects = nbOfObjects - 1;
+				//console.log("TARGET DESTROYED");
+				
+				if (object.isGood == false) {
+				score = score + 20;
+
+				}
+
+				else if (object.isGood == true && object.id != "pommi") {
+				score -= 20;	
+				}
+				}			
+	
+
+				playerAmmo[n].el.clearRect(null, null, 3, 10);
+				playerAmmo[n].el.remove();
+				playerAmmo.splice(n, 1);
+				
+				nbOfAmmo = nbOfAmmo - 1;
+
+			
+				
+			}
+			
+		});
+
+		
+			}
+			
+		
+		}
+	}
+
+
+	};
+
+
+
+}
+	}
+
+
+	
+	if(typeof flyingObjects[0] != 'undefined'){	
+
+
+	
+	for(var i = 0; i < nbOfObjects; i++){
+
+		object = flyingObjects[i];
+
+
+		if(object.id == "pommi" && object.hp ==1) {
+		testScene.spritesheetBomb.draw(object.el, "handleOff");
+		}
+
+	
+		//Jos vihollinen mennyt kartasta yli x-suunnassa
+		//Poistetaan se kartasta
+		
+		if(object.el.x > 650){
+
+
+			
+			object.el.clearRect(null, null, 32, 32);	
+			object.el.remove();
+			
+			flyingObjects.splice(i, 1);
+			
+			nbOfObjects = nbOfObjects - 1;
+			
+		}
+
+
+		
+		if(object.el.y > 460 && object.isGood == false){
+
+			if(object.isPollution == false) {
+			testScene.spill.play();
+			}
+
+			
+
+			if(object.isDrawn == false && pollutionOnGround <10) {
+			object.isPollution = true;
+			object.move(0, 0); 
+			object.el.rotation = 0;
+			object.el.drawImage("laikka");
+			object.isDrawn = true;
+			pollutionOnGround +=1;
+			}
+
+			
+			if (object.isPollution == false && object.isDrawn == false) {
+			nbOfObjects = nbOfObjects - 1;
+			object.el.clearRect(null, null, 32, 32);
+			object.el.remove();
+			flyingObjects.splice(i, 1);	
+			}
+				
+			
+		}
+
+
+
+	if(object.el.y > 460 && object.isGood == true && object.catched != true && object.id != "pommi"){
+
+			if(object.isDrawn == false && flowerOnGround <10) {
+			object.el.drawImage("kukka");
+			object.isFlower = true;
+			object.move(0, 0); 
+			object.rect(null, null);
+			object.el.rotation = 0;
+			object.isDrawn = true;
+			flowerOnGround +=1;
+			}
+
+			
+
+		
+		if (object.isFlower == false && object.isDrawn == false) {
+			nbOfObjects = nbOfObjects - 1;
+			object.el.clearRect(null, null, 32, 32);
+			object.el.remove();
+			flyingObjects.splice(i, 1);	
+			}
+				
+
+		}		
+
+		//Jos vihollinen matkalla kohteeseen
+		else {
+
+	
+	if(object.isPollution == false) {
+	object.move(object.moveSpeed[0], object.moveSpeed[1]);
+	object.el.rotation +=5;
+	}
+	else {
+
+	object.move(0,0);
+	object.el.rotation = 0;
+	}
+	
+	
+	
+	//Jos vihollinen osuu baseen		
+	flyingObjects[i].hit([base], function(state, el){
+		testScene.baseHit = true;
+
+
+		if(state == "over"){
+
+
+
+			if(object.catched == false) {
+			var hit = testScene.createElement();
+
+				hit.x = object.el.x;
+				hit.y = object.el.y;
+				var hitSS = canvas.Animation.new({
+
+					images: "hitSprite",
+					
+					animations: {
+						run:{
+						
+						frames: [0, 3],
+						size: {
+							
+							width: 16,
+							height: 16
+						},
+						frequence: 3,
+						
+						finish: function(){
+							
+							}	
+						}
+						
+					}
+				
+				});
+
+
+
+				stage.append(hit);
+
+				hitSS.add(hit);
+				hitSS.play("run", "remove");
+					
+				hitSS = null;
+				hit = null;
+				}
+				
+
+				nbOfObjects = nbOfObjects - 1;
+				object.el.clearRect(null, null, 32, 32);
+				object.el.remove();
+				flyingObjects.splice(i, 1);
+
+
+			
+			if(testScene.baseHit == true) {
+
+			if(object.catched ==true) {
+			testScene.baseReached.play();
+			rescuedCounter +=1;	
+			score += 100;
+			unit.bombCounter += 1;	
+			if(base.hitsLeft <10) {
+			base.hitsLeft +=1
+			}
+			}
+
+			else {
+
+			testScene.baseGotHit.play();
+			
+			//--base.hitsLeft;
+			testScene.baseHit = false;
+			}
+			}
+			
+			
+			if(base.hitsLeft < 0){
+				
+				playGame = false;
+				showReplayScreen = true;
+			}
+
+			
+			else {
+			
+				playGame = true;
+			}
+			
+		}
+		
+	});
+
+unit.hit([object], function(state, el){
+
+
+
+		
+		if(state == "over"){
+				
+
+
+			if(object.isGood == true && object.catched == false && object.id != "pommi"){
+				object.catched = true;	
+				object.position(unit.el.x, unit.el.y + 22);
+				//console.log("Eläin napattu");
+
+				testScene.koppi.play();
+			}
+
+
+
+
+			else if(object.isPollution == true){
+				
+			testScene.unitClean.play();
+			nbOfObjects = nbOfObjects - 1;
+			object.el.clearRect(null, null, 32, 32);
+			object.el.remove();
+			flyingObjects.splice(i,1);
+			score += 20;
+			pollutionOnGround -=1;
+
+			
+			
+		}
+
+		else if(object.isGood == false && unit.gotHit == false) {
+		
+		unit.gotHit = true	
+		}
+		
+		}
+
+	
+	});
+
+
+
+
+
+
+
+for (var s = 0; s < nbOfObjects; s++) {
+	
+
+if(flyingObjects[i] != flyingObjects[s]) {
+flyingObjects[i].hit([flyingObjects[s]], function(state, el){
+
+		
+		if(state == "over" && flyingObjects[i].catched == true && flyingObjects[s].isPollution == true|| state == "over" && flyingObjects[s].catched == true && flyingObjects[i].isPollution == true){
+
+
+			var hitObject = testScene.createElement();
+
+				if(flyingObjects[i].catched == true) {
+				hitObject.x = flyingObjects[i].el.x;
+				hitObject.y = flyingObjects[i].el.y;	
+				}
+				
+				else if (flyingObjects[s].catched == true) {
+				hitObject.x = flyingObjects[s].el.x;
+				hitObject.y = flyingObjects[s].el.y;
+				}	
+
+				var hitSS = canvas.Animation.new({
+
+					images: "hitSprite",
+					
+					animations: {
+						run:{
+						
+						frames: [0, 3],
+						size: {
+							
+							width: 16,
+							height: 16
+						},
+						frequence: 3,
+						
+						finish: function(){
+							
+							}	
+						}
+						
+					}
+				
+				});
+
+
+				
+				stage.append(hitObject);
+
+				hitSS.add(hitObject);
+				hitSS.play("run", "remove");
+					
+				hitSS = null;
+				hitObject = null;
+
+
+			
+			if(flyingObjects[i].catched == true && flyingObjects[i].isGood == false || flyingObjects[i].catched == true && flyingObjects[s].isGood == false) {
+			nbOfObjects = nbOfObjects - 1;
+			flyingObjects[i].el.clearRect(null,null,32,32);
+			flyingObjects[i].el.remove();
+			flyingObjects.splice(i,1);
+			testScene.hitGood.play();	
+
+			}
+
+			if (flyingObjects[s].catched == true && flyingObjects[i].isGood == false || flyingObjects[s].catched == true && flyingObjects[s].isGood == false) {
+			nbOfObjects = nbOfObjects - 1;
+			flyingObjects[s].el.clearRect(null,null,32,32);
+			flyingObjects[s].el.remove();
+			flyingObjects.splice(s,1);
+			testScene.hitGood.play();	
+
+			}	
+			
+}
+});
+}		
+};
+
+
+if(object.catched == true) {
+object.moveSpeed[0] = 2;
+object.moveSpeed[1] = 0;
+object.el.rotation = 0;	
+}
+
+		}
+	}
+	
+	}
+
+	else {}
+	
+
+	}
+	
+	//Jos pelaaja hÃ¤viÃ¤Ã¤
+	
+	else{
+		
+		
+		if(showReplayScreen == true){
+		document.getElementById('customText').innerHTML = 'Replay';
+		replayScreenShowed = true;
+		unit.movement = false;
+		
+		testScene.pause(true);
+		$('#customText').show();
+		
+		document.getElementById('scoreBoard').innerHTML = 'Scored: ' + score;
+		$('#scoreBoard').show();
+		$('#customText').click(function(e) {
+    	window.location.reload(true); 
+    	replayScreenShowed = false;
+
+    
+		});
+		
+		}
+		
+	}
+	
+
+	stage.refresh();
+},
+exit: function(stage) {
+
+}
+});
+
+
+</script>
+</head>
+<body unselectable="yes">
+
+<canvas id="gameCanvas" width="640" height="480"></canvas>
+
+
+<div id="scoreText">
+<p> Score:</p>
+</div> 
+
+<div id="baseText">
+<p> Base HP:</p>
+</div>
+
+<div id="rescuedText">
+<p> Rescued:</p>
+</div>
+
+
+<div id="timerText">
+</div>
+      
+
+<p id="score"></p>
+<p id="baseHP"></p>
+<p id="rescued"></p>
+<p id= "timer"></p>
+<p id= "hellmode"></p>
+<span id="customText">Play</span>	
+<span class="canvasBoards" id="scoreBoard"></span>
+
+
+</body>
+
+</html>

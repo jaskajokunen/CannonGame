@@ -1,0 +1,75 @@
+
+demuckmanjumping.png
+format: RGBA8888
+filter: Nearest,Nearest
+repeat: none
+rock_middle.png
+  rotate: false
+  xy: 1, 1
+  size: 20, 60
+  orig: 20, 60
+  offset: 0, 0
+  index: -1
+cloud01
+  rotate: false
+  xy: 23, 29
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: -1
+item_gold_coin
+  rotate: false
+  xy: 57, 29
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: -1
+mountain_left
+  rotate: false
+  xy: 91, 29
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: -1
+mountain_right
+  rotate: false
+  xy: 125, 29
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: -1
+player_character
+  rotate: false
+  xy: 159, 29
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: -1
+cloud02
+  rotate: false
+  xy: 23, 4
+  size: 25, 23
+  orig: 25, 23
+  offset: 0, 0
+  index: -1
+water_overlay
+  rotate: false
+  xy: 193, 41
+  size: 26, 20
+  orig: 26, 20
+  offset: 0, 0
+  index: -1
+rock_edge.png
+  rotate: false
+  xy: 50, 9
+  size: 13, 18
+  orig: 13, 18
+  offset: 0, 0
+  index: -1
+cloud03
+  rotate: false
+  xy: 221, 49
+  size: 12, 12
+  orig: 12, 12
+  offset: 0, 0
+  index: -1
